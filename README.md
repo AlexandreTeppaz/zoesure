@@ -1,22 +1,20 @@
 # 💡 ZOESURE — Web Bluetooth Controller
 
 ![Status](https://img.shields.io/badge/Statut-Op%C3%A9rationnel-2ea44f?style=for-the-badge)
-![Bluetooth](https://img.shields.io/badge/Web_Bluetooth-BLE-0082FC?style=for-the-badge&logo=bluetooth&logoColor=white)
+![Bluetooth](https://img.shields.io/badge/Web_Bluetooth-BLE-0082FC?style=for-the-badge&logo=bluetooth&logoColor=white)<br>
 ![Tested](https://img.shields.io/badge/Test%C3%A9_sur-ZOESURE_ZF319-FF4500?style=for-the-badge)
 ![License](https://img.shields.io/badge/Usage-Personnel_%26_Gratuit-111111?style=for-the-badge)
 
 Application web minimaliste permettant de contrôler un ou plusieurs projecteurs LED **ZOESURE Smart Flood Light** directement depuis votre navigateur via **Web Bluetooth**, en remplacement de l'application mobile officielle hors service.
 
 > [!TIP]
-> **Aucune installation ni téléchargement requis** : tout fonctionne directement en ligne depuis le lien ci-dessous.
+> **Aucune installation ni téléchargement requis** : tout fonctionne directement en ligne en cliquant sur **[ouvrir l'interface ZOESURE Control](https://alexandreteppaz.github.io/zoesure/)**.
 
 ---
 
 ## 🌐 Accéder à l'application
 
-Ouvrez simplement cette adresse sur votre téléphone ou ordinateur :
-
-👉 **`https://<ton-pseudo-github>.github.io/<nom-du-repo>/`**
+👉 **[Accéder à l'interface ZOESURE Control](https://alexandreteppaz.github.io/zoesure/)**
 
 ### Compatibilité des appareils et navigateurs
 
@@ -35,7 +33,7 @@ Ouvrez simplement cette adresse sur votre téléphone ou ordinateur :
 ## 🔗 Comment connecter vos projecteurs
 
 1. Branchez vos projecteurs LED sur le secteur.
-2. Ouvrez le lien de l'application sur votre navigateur.
+2. Cliquez sur **[ouvrir l'interface en ligne](https://alexandreteppaz.github.io/zoesure/)** depuis votre navigateur.
 3. Dans le premier encadré, cliquez sur **Connecter** à droite de **Panneau 1**.
 4. Dans la fenêtre Bluetooth qui s'ouvre, sélectionnez votre projecteur (son nom ressemble généralement à **`ZF319-4B56`**, **`ZF-XXXX`** ou **`ZT-XXXX`**).
 5. *(Optionnel)* Cliquez sur **`[+]`** en haut à droite pour ajouter d'autres panneaux (`Panneau 2`, `Panneau 3`...) et connectez-les de la même manière.
