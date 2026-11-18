@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ZF319 Control</title>
+  <title>ZOESURE Control</title>
   <style>
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { margin: 0; padding: 20px; background: #ffffff; color: #111111; display: flex; justify-content: center; }
@@ -42,7 +42,7 @@
     input[type="range"] { width: 100%; accent-color: #111111; margin-top: 8px; }
     label { font-size: 0.82rem; color: #555555; display: flex; justify-content: space-between; }
 
-    /* Modale 3 pages */
+    /* Modale 4 pages */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
       display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
@@ -63,16 +63,16 @@
 </head>
 <body>
 
-  <!-- Modale 3 étapes -->
+  <!-- Modale 4 étapes -->
   <div id="infoModal" class="modal-overlay">
     <div class="modal-box">
       <div>
-        <div id="modalStep" class="modal-step">Étape 1 / 3</div>
-        <h2 id="modalTitle" class="modal-title">Sécurité Bluetooth</h2>
+        <div id="modalStep" class="modal-step">Information 1 / 4</div>
+        <h2 id="modalTitle" class="modal-title">Identifier votre panneau LED</h2>
       </div>
       <p id="modalBody" class="modal-text"></p>
       <div class="modal-footer">
-      <div class="dots">
+        <div class="dots">
           <span class="dot active" id="dot0"></span>
           <span class="dot" id="dot1"></span>
           <span class="dot" id="dot2"></span>
@@ -89,7 +89,7 @@
   <div class="container">
     <!-- En-tête + bouton [+] -->
     <div class="row">
-      <h1 class="header-title">ZOESURE ZF319</h1>
+      <h1 class="header-title">ZOESURE Control</h1>
       <div style="display: flex; gap: 6px;">
         <button id="btnHelp" class="icon-btn" title="Informations">?</button>
         <button id="btnAddPanel" class="icon-btn" title="Ajouter un panneau">[+]</button>
@@ -140,21 +140,25 @@
   </div>
 
   <script>
-    const SERVICE_UUID = 0x0929;
-    const CHAR_UUID = 0x1224;
     const PROFILES = [
       { service: 0x0929, char: 0x1224 },
       { service: 0xFFE0, char: 0xFFE1 }
     ];
     const STORAGE_KEY = 'zf319_panels_v1';
+    const MODAL_KEY = 'zf319_modal_seen_v2';
+
     // Chargement de la configuration sauvegardée (1 panneau par défaut)
-    let savedPanels = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    let savedPanels = null;
+    try {
+      savedPanels = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    } catch (_) {}
+
     if (!Array.isArray(savedPanels) || savedPanels.length === 0) {
       savedPanels = [{ id: 1, name: 'Panneau 1' }];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPanels));
     }
 
-    // État Bluetooth en mémoire (non persistant au reload)
+    // État Bluetooth en mémoire
     const bleState = {};
     savedPanels.forEach(p => {
       bleState[p.id] = { char: null, writing: false, device: null, statusText: 'Non connecté', connected: false };
@@ -179,7 +183,6 @@
         const st = bleState[panel.id] || { char: null, writing: false, device: null, statusText: 'Non connecté', connected: false };
         bleState[panel.id] = st;
 
-        // Ligne dans la liste des panneaux
         const row = document.createElement('div');
         row.className = 'panel-row';
 
@@ -235,7 +238,6 @@
       const targetEl = document.getElementById('targetGrid');
       targetEl.innerHTML = '';
 
-      // Bouton "Tous" en premier et sélectionné par défaut
       const allBtn = document.createElement('button');
       allBtn.textContent = 'Tous';
       if (target === 'all') allBtn.classList.add('selected');
@@ -251,7 +253,6 @@
       });
     }
 
-    // Ajouter un panneau N+1
     document.getElementById('btnAddPanel').onclick = () => {
       const maxId = savedPanels.reduce((max, p) => Math.max(max, p.id), 0);
       const nextId = maxId + 1;
@@ -262,7 +263,7 @@
     };
 
     function removePanel(id) {
-      if (bleState[id]?.device?.gatt?.connected) {
+      if (bleState[id] && bleState[id].device && bleState[id].device.gatt.connected) {
         bleState[id].device.gatt.disconnect();
       }
       delete bleState[id];
@@ -344,7 +345,7 @@
       }
     }
 
-    // Palette rapide
+    // Palette rapide (vert corrigé)
     const presets = ['#FF0000', '#FF4500', '#FFD000', '#44FF00', '#0088FF', '#7722FF'];
     const swatchContainer = document.getElementById('swatches');
     presets.forEach(hex => {
@@ -445,42 +446,73 @@
       }
     };
 
-    const MODAL_KEY = 'zf319_modal_seen_v2';
-        const modalPages = [
-          {
-            title: 'Identifier votre panneau LED',
-            text: 'Lors de la connexion Bluetooth, votre navigateur affichera tous les appareils à proximité. Le nom de votre projecteur ZOESURE ressemble généralement à : « ZF319-4B56 », « ZF-XXXX » ou « ZT-XXXX ».'
-          },
-          {
-            title: 'Reconnexion après actualisation',
-            text: 'Pour des raisons de sécurité imposées par les navigateurs web, la connexion Bluetooth est coupée à chaque rechargement de la page. Il faut donc cliquer sur « Connecter » pour resélectionner vos panneaux LED à chaque actualisation.'
-          },
-          {
-            title: 'Fonctionnement des animations',
-            text: 'Les animations (Arc-en-ciel, Respiration, Gyrophare) sont calculées en direct par cette page. Votre téléphone doit donc rester à proximité et connecté en Bluetooth aux panneaux LED pour que l’animation continue de tourner.'
-          },
-          {
-            title: 'À propos & Licence',
-            text: 'Je m’appelle Alex et je mets ce site web gratuitement à disposition pour aider les utilisateurs dont l’application officielle a fermé. Ce projet est libre d’utilisation personnelle, mais il est strictement interdit de se l’approprier ou de le revendre.'
-          }
-        ];
-    
-        let currentModalPage = 0;
-        const modalEl = document.getElementById('infoModal');
-    
-        function updateModal() {
-          const page = modalPages[currentModalPage];
-          document.getElementById('modalStep').textContent = `Information ${currentModalPage + 1} / ${modalPages.length}`;
-          document.getElementById('modalTitle').textContent = page.title;
-          document.getElementById('modalBody').textContent = page.text;
-    
-          modalPages.forEach((_, i) => {
-            document.getElementById(`dot${i}`).classList.toggle('active', i === currentModalPage);
-          });
-    
-          document.getElementById('modalPrev').style.display = currentModalPage > 0 ? 'inline-block' : 'none';
-          document.getElementById('modalNext').textContent = currentModalPage === modalPages.length - 1 ? 'Compris' : 'Suivant';
-        }
+    // Logique de la modale 4 pages
+    const modalPages = [
+      {
+        title: 'Identifier votre panneau LED',
+        text: 'Lors de la connexion Bluetooth, votre navigateur affichera tous les appareils à proximité. Le nom de votre projecteur ZOESURE ressemble généralement à : « ZF319-4B56 », « ZF-XXXX » ou « ZT-XXXX ».'
+      },
+      {
+        title: 'Reconnexion après actualisation',
+        text: 'Pour des raisons de sécurité imposées par les navigateurs web, la connexion Bluetooth est coupée à chaque rechargement de la page. Il faut donc cliquer sur « Connecter » pour resélectionner vos panneaux LED à chaque actualisation.'
+      },
+      {
+        title: 'Fonctionnement des animations',
+        text: 'Les animations (Arc-en-ciel, Respiration, Gyrophare) sont calculées en direct par cette page. Votre téléphone doit donc rester à proximité et connecté en Bluetooth aux panneaux LED pour que l’animation continue de tourner.'
+      },
+      {
+        title: 'À propos & Licence',
+        text: 'Je m’appelle Alex et je mets ce site web gratuitement à disposition pour aider les utilisateurs dont l’application officielle a fermé. Ce projet est libre d’utilisation personnelle, mais il est strictement interdit de se l’approprier ou de le revendre.'
+      }
+    ];
+
+    let currentModalPage = 0;
+    const modalEl = document.getElementById('infoModal');
+
+    function updateModal() {
+      const page = modalPages[currentModalPage];
+      document.getElementById('modalStep').textContent = `Information ${currentModalPage + 1} / ${modalPages.length}`;
+      document.getElementById('modalTitle').textContent = page.title;
+      document.getElementById('modalBody').textContent = page.text;
+
+      modalPages.forEach((_, i) => {
+        document.getElementById(`dot${i}`).classList.toggle('active', i === currentModalPage);
+      });
+
+      document.getElementById('modalPrev').style.display = currentModalPage > 0 ? 'inline-block' : 'none';
+      document.getElementById('modalNext').textContent = currentModalPage === modalPages.length - 1 ? 'Compris' : 'Suivant';
+    }
+
+    document.getElementById('modalNext').onclick = () => {
+      if (currentModalPage < modalPages.length - 1) {
+        currentModalPage++;
+        updateModal();
+      } else {
+        localStorage.setItem(MODAL_KEY, '1');
+        modalEl.classList.add('hidden');
+      }
+    };
+
+    document.getElementById('modalPrev').onclick = () => {
+      if (currentModalPage > 0) {
+        currentModalPage--;
+        updateModal();
+      }
+    };
+
+    document.getElementById('btnHelp').onclick = () => {
+      currentModalPage = 0;
+      updateModal();
+      modalEl.classList.remove('hidden');
+    };
+
+    // Initialisation
+    if (localStorage.getItem(MODAL_KEY) === '1') {
+      modalEl.classList.add('hidden');
+    } else {
+      updateModal();
+    }
+    renderUI();
   </script>
 </body>
 </html>
