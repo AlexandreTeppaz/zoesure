@@ -32,6 +32,17 @@
     button.selected { background: #111111; color: #ffffff; border-color: #111111; }
     button.icon-btn { padding: 6px 10px; font-weight: 600; }
     button.del-btn { padding: 8px 10px; color: #888888; border-color: #e5e5e5; }
+    select {
+      width: 100%;
+      border: 1px solid #d4d4d4;
+      background: #ffffff;
+      color: #111111;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      margin-top: 6px;
+    }
     .target-grid { display: flex; flex-wrap: wrap; gap: 8px; }
     .target-grid button { flex: 1 1 auto; min-width: 80px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -41,6 +52,8 @@
     input[type="color"] { width: 100%; height: 40px; border: 1px solid #d4d4d4; border-radius: 6px; padding: 2px; background: #ffffff; cursor: pointer; }
     input[type="range"] { width: 100%; accent-color: #111111; margin-top: 8px; }
     label { font-size: 0.82rem; color: #555555; display: flex; justify-content: space-between; }
+    .preview-bar { display: flex; height: 10px; border-radius: 4px; overflow: hidden; border: 1px solid #e5e5e5; margin-top: 10px; }
+    .preview-half { flex: 1; background: #ffffff; transition: background-color 0.08s linear; }
 
     /* Modale 4 pages */
     .modal-overlay {
@@ -137,6 +150,33 @@
       <label style="margin-top: 14px;"><span>Vitesse</span><span id="speedVal">Moyenne</span></label>
       <input type="range" id="speed" min="80" max="500" value="180" />
     </div>
+
+    <!-- Sync Écran PC uniquement (Ambilight Gauche / Droite) -->
+    <div class="box" id="screenSyncBox" style="display: none;">
+      <div class="row" style="margin-bottom: 10px;">
+        <div>
+          <span style="font-size: 0.88rem; font-weight: 600;">Sync Écran (PC)</span>
+          <div id="screenStatus" class="sub">Inactif</div>
+        </div>
+        <button id="btnScreenSync">Capturer l'écran</button>
+      </div>
+
+      <div class="grid-2" style="margin-top: 10px;">
+        <div>
+          <label><span>Zone Gauche</span></label>
+          <select id="selectLeftPanel"></select>
+        </div>
+        <div>
+          <label><span>Zone Droite</span></label>
+          <select id="selectRightPanel"></select>
+        </div>
+      </div>
+
+      <div class="preview-bar">
+        <div id="previewLeft" class="preview-half" title="Couleur dominante gauche"></div>
+        <div id="previewRight" class="preview-half" title="Couleur dominante droite"></div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -146,6 +186,7 @@
     ];
     const STORAGE_KEY = 'zf319_panels_v1';
     const MODAL_KEY = 'zf319_modal_seen_v2';
+    const SCREEN_MAP_KEY = 'zf319_screen_map_v1';
 
     // Chargement de la configuration sauvegardée (1 panneau par défaut)
     let savedPanels = null;
@@ -157,6 +198,13 @@
       savedPanels = [{ id: 1, name: 'Panneau 1' }];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPanels));
     }
+
+    // Attribution Gauche / Droite sauvegardée pour la Sync Écran PC
+    let screenMap = { left: '1', right: '2' };
+    try {
+      const storedMap = JSON.parse(localStorage.getItem(SCREEN_MAP_KEY));
+      if (storedMap && typeof storedMap === 'object') screenMap = storedMap;
+    } catch (_) {}
 
     // État Bluetooth en mémoire
     const bleState = {};
@@ -173,11 +221,13 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPanels));
     }
 
+    function saveScreenMap() {
+      localStorage.setItem(SCREEN_MAP_KEY, JSON.stringify(screenMap));
+    }
+
     function renderUI() {
       const listEl = document.getElementById('panelsList');
-      const targetEl = document.getElementById('targetGrid');
       listEl.innerHTML = '';
-      targetEl.innerHTML = '';
 
       savedPanels.forEach(panel => {
         const st = bleState[panel.id] || { char: null, writing: false, device: null, statusText: 'Non connecté', connected: false };
@@ -198,6 +248,7 @@
           e.target.value = val;
           savePanels();
           renderTargetsOnly();
+          renderScreenSelects();
         };
 
         const sub = document.createElement('div');
@@ -232,6 +283,7 @@
       });
 
       renderTargetsOnly();
+      renderScreenSelects();
     }
 
     function renderTargetsOnly() {
@@ -252,6 +304,49 @@
         targetEl.appendChild(btn);
       });
     }
+
+    function renderScreenSelects() {
+      const selLeft = document.getElementById('selectLeftPanel');
+      const selRight = document.getElementById('selectRightPanel');
+      if (!selLeft || !selRight) return;
+
+      [selLeft, selRight].forEach((sel, idx) => {
+        const side = idx === 0 ? 'left' : 'right';
+        sel.innerHTML = '';
+
+        const noneOpt = document.createElement('option');
+        noneOpt.value = 'none';
+        noneOpt.textContent = 'Aucun';
+        sel.appendChild(noneOpt);
+
+        savedPanels.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = String(p.id);
+          opt.textContent = p.name;
+          sel.appendChild(opt);
+        });
+
+        // Sélectionne la valeur sauvegardée si elle existe encore, sinon défaut intelligent
+        const validIds = ['none', ...savedPanels.map(p => String(p.id))];
+        if (validIds.includes(String(screenMap[side]))) {
+          sel.value = String(screenMap[side]);
+        } else {
+          sel.value = idx === 0 ? String(savedPanels[0].id) : (savedPanels[1] ? String(savedPanels[1].id) : String(savedPanels[0].id));
+          screenMap[side] = sel.value;
+          saveScreenMap();
+        }
+      });
+    }
+
+    document.getElementById('selectLeftPanel').onchange = (e) => {
+      screenMap.left = e.target.value;
+      saveScreenMap();
+    };
+
+    document.getElementById('selectRightPanel').onchange = (e) => {
+      screenMap.right = e.target.value;
+      saveScreenMap();
+    };
 
     document.getElementById('btnAddPanel').onclick = () => {
       const maxId = savedPanels.reduce((max, p) => Math.max(max, p.id), 0);
@@ -345,19 +440,19 @@
       }
     }
 
-    // Palette rapide (vert corrigé)
+    // Palette rapide
     const presets = ['#FF0000', '#FF4500', '#FFD000', '#44FF00', '#0088FF', '#7722FF'];
     const swatchContainer = document.getElementById('swatches');
     presets.forEach(hex => {
       const el = document.createElement('div');
       el.className = 'swatch';
       el.style.background = hex;
-      el.onclick = () => { stopAnim(); setHexColor(hex); };
+      el.onclick = () => { stopAllModes(); setHexColor(hex); };
       swatchContainer.appendChild(el);
     });
 
-    document.getElementById('btnOn').onclick = () => { stopAnim(); sendBytes([0x01, 0x04, 0x02, 0x01]); };
-    document.getElementById('btnOff').onclick = () => { stopAnim(); sendBytes([0x01, 0x04, 0x02, 0x00]); };
+    document.getElementById('btnOn').onclick = () => { stopAllModes(); sendBytes([0x01, 0x04, 0x02, 0x01]); };
+    document.getElementById('btnOff').onclick = () => { stopAllModes(); sendBytes([0x01, 0x04, 0x02, 0x00]); };
 
     function setHexColor(hex) {
       document.getElementById('colorPicker').value = hex;
@@ -370,7 +465,7 @@
     }
 
     document.getElementById('colorPicker').oninput = (e) => {
-      stopAnim();
+      stopAllModes();
       setHexColor(e.target.value);
     };
 
@@ -381,7 +476,7 @@
     };
 
     document.getElementById('cct').oninput = (e) => {
-      stopAnim();
+      stopAllModes();
       const val = parseInt(e.target.value, 10);
       document.getElementById('cctVal').textContent = val + '%';
       const warm = Math.round((val * 255) / 100);
@@ -405,9 +500,14 @@
       document.querySelectorAll('[data-anim]').forEach(b => b.classList.remove('selected'));
     }
 
+    function stopAllModes() {
+      stopAnim();
+      stopScreenSync();
+    }
+
     function startAnim(type) {
       if (currentAnim === type) { stopAnim(); return; }
-      stopAnim();
+      stopAllModes();
       currentAnim = type;
       document.querySelector(`[data-anim="${type}"]`).classList.add('selected');
       document.getElementById('animLabel').textContent = type;
@@ -446,7 +546,130 @@
       }
     };
 
-    // Logique de la modale 4 pages
+    // --- SYNC ÉCRAN PC (Ambilight Gauche / Droite par couleur dominante) ---
+    const isDesktop = !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+    if (isDesktop) {
+      document.getElementById('screenSyncBox').style.display = 'block';
+    }
+
+    let screenStream = null;
+    let screenTimer = null;
+    const videoEl = document.createElement('video');
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    const canvasEl = document.createElement('canvas');
+    canvasEl.width = 32;
+    canvasEl.height = 18;
+    const ctx = canvasEl.getContext('2d', { willReadFrequently: true });
+
+    // Calcul de la couleur dominante sur la moitié gauche (startX=0..16) ou droite (startX=16..32)
+    function getDominantColor(imgData, startX, endX, width, height) {
+      let rSum = 0, gSum = 0, bSum = 0, totalWeight = 0;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = startX; x < endX; x++) {
+          const idx = (y * width + x) * 4;
+          const r = imgData[idx];
+          const g = imgData[idx + 1];
+          const b = imgData[idx + 2];
+
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+
+          // Ignore les bandes noires / zones très sombres
+          if (max < 25) continue;
+
+          // Pondère davantage les couleurs vives/saturées pour une vraie dominante visuelle
+          const sat = max === 0 ? 0 : (max - min) / max;
+          const weight = 0.2 + (sat * sat * 2.5);
+
+          rSum += r * weight;
+          gSum += g * weight;
+          bSum += b * weight;
+          totalWeight += weight;
+        }
+      }
+
+      if (totalWeight === 0) return [0, 0, 0];
+      return [
+        Math.round(rSum / totalWeight),
+        Math.round(gSum / totalWeight),
+        Math.round(bSum / totalWeight)
+      ];
+    }
+
+    function stopScreenSync() {
+      if (screenTimer) {
+        clearInterval(screenTimer);
+        screenTimer = null;
+      }
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+      }
+      const btn = document.getElementById('btnScreenSync');
+      const status = document.getElementById('screenStatus');
+      if (btn) {
+        btn.textContent = "Capturer l'écran";
+        btn.classList.remove('selected');
+      }
+      if (status) {
+        status.textContent = 'Inactif';
+        status.classList.remove('connected');
+      }
+      document.getElementById('previewLeft').style.backgroundColor = '#ffffff';
+      document.getElementById('previewRight').style.backgroundColor = '#ffffff';
+    }
+
+    document.getElementById('btnScreenSync').onclick = async () => {
+      if (screenStream) {
+        stopScreenSync();
+        return;
+      }
+      stopAllModes();
+
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 15, max: 20 } },
+          audio: false
+        });
+
+        videoEl.srcObject = screenStream;
+        await videoEl.play();
+
+        const btn = document.getElementById('btnScreenSync');
+        const status = document.getElementById('screenStatus');
+        btn.textContent = 'Arrêter';
+        btn.classList.add('selected');
+        status.textContent = 'Synchronisation active';
+        status.classList.add('connected');
+
+        screenStream.getVideoTracks()[0].addEventListener('ended', stopScreenSync);
+
+        screenTimer = setInterval(() => {
+          if (videoEl.readyState < 2) return;
+          ctx.drawImage(videoEl, 0, 0, 32, 18);
+          const data = ctx.getImageData(0, 0, 32, 18).data;
+
+          const [rL, gL, bL] = getDominantColor(data, 0, 16, 32, 18);
+          const [rR, gR, bR] = getDominantColor(data, 16, 32, 32, 18);
+
+          document.getElementById('previewLeft').style.backgroundColor = `rgb(${rL},${gL},${bL})`;
+          document.getElementById('previewRight').style.backgroundColor = `rgb(${rR},${gR},${bR})`;
+
+          if (screenMap.left !== 'none') {
+            writeToPanel(screenMap.left, [0x01, 0x04, 0x0A, 0x01, rL, gL, bL]);
+          }
+          if (screenMap.right !== 'none' && screenMap.right !== screenMap.left) {
+            writeToPanel(screenMap.right, [0x01, 0x04, 0x0A, 0x01, rR, gR, bR]);
+          }
+        }, 90);
+      } catch (err) {
+        stopScreenSync();
+      }
+    };
+
+    // --- MODALE 4 PAGES ---
     const modalPages = [
       {
         title: 'Identifier votre panneau LED',
@@ -458,7 +681,7 @@
       },
       {
         title: 'Fonctionnement des animations',
-        text: 'Les animations (Arc-en-ciel, Respiration, Gyrophare) sont calculées en direct par cette page. Votre téléphone doit donc rester à proximité et connecté en Bluetooth aux panneaux LED pour que l’animation continue de tourner.'
+        text: 'Les animations (Arc-en-ciel, Respiration, Gyrophare) sont calculées en direct par cette page. Votre téléphone ou PC doit donc rester à proximité et connecté en Bluetooth aux panneaux LED pour que l’animation continue de tourner.'
       },
       {
         title: 'À propos & Licence',
