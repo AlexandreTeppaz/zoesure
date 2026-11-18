@@ -329,7 +329,7 @@
     }
 
     // Palette rapide
-    const presets = ['#FF0000', '#FF4500', '#FFD000', '#00CC44', '#0088FF', '#7722FF'];
+    const presets = ['#FF0000', '#FF4500', '#FFD000', '#44FF00', '#0088FF', '#7722FF'];
     const swatchContainer = document.getElementById('swatches');
     presets.forEach(hex => {
       const el = document.createElement('div');
@@ -430,6 +430,8 @@
     };
 
     // Logique de la modale 3 pages
+    // Logique de la modale 3 pages (avec mémorisation au clic sur "Compris")
+    const MODAL_KEY = 'zf319_modal_seen_v1';
     const modalPages = [
       {
         title: 'Reconnexion après actualisation',
@@ -467,6 +469,7 @@
         currentModalPage++;
         updateModal();
       } else {
+        localStorage.setItem(MODAL_KEY, '1');
         modalEl.classList.add('hidden');
       }
     };
@@ -484,8 +487,12 @@
       modalEl.classList.remove('hidden');
     };
 
-    // Initialisation
-    updateModal();
+    // Initialisation : masque la modale si déjà validée
+    if (localStorage.getItem(MODAL_KEY) === '1') {
+      modalEl.classList.add('hidden');
+    } else {
+      updateModal();
+    }
     renderUI();
   </script>
 </body>
