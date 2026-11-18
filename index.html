@@ -72,10 +72,11 @@
       </div>
       <p id="modalBody" class="modal-text"></p>
       <div class="modal-footer">
-        <div class="dots">
+      <div class="dots">
           <span class="dot active" id="dot0"></span>
           <span class="dot" id="dot1"></span>
           <span class="dot" id="dot2"></span>
+          <span class="dot" id="dot3"></span>
         </div>
         <div style="display: flex; gap: 8px;">
           <button id="modalPrev" style="display: none;">Précédent</button>
@@ -141,8 +142,11 @@
   <script>
     const SERVICE_UUID = 0x0929;
     const CHAR_UUID = 0x1224;
+    const PROFILES = [
+      { service: 0x0929, char: 0x1224 },
+      { service: 0xFFE0, char: 0xFFE1 }
+    ];
     const STORAGE_KEY = 'zf319_panels_v1';
-
     // Chargement de la configuration sauvegardée (1 panneau par défaut)
     let savedPanels = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!Array.isArray(savedPanels) || savedPanels.length === 0) {
@@ -276,17 +280,29 @@
         if (subEl) subEl.textContent = st.statusText;
 
         const device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'ZF319' }],
-          optionalServices: [SERVICE_UUID]
+          acceptAllDevices: true,
+          optionalServices: PROFILES.map(p => p.service)
         });
         const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(SERVICE_UUID);
-        const char = await service.getCharacteristic(CHAR_UUID);
+
+        let char = null;
+        for (const profile of PROFILES) {
+          try {
+            const service = await server.getPrimaryService(profile.service);
+            char = await service.getCharacteristic(profile.char);
+            break;
+          } catch (_) {}
+        }
+
+        if (!char) {
+          server.disconnect();
+          throw new Error('Appareil non compatible');
+        }
 
         st.char = char;
         st.device = device;
         st.connected = true;
-        st.statusText = device.name;
+        st.statusText = device.name || 'Panneau connecté';
         renderUI();
 
         device.addEventListener('gattserverdisconnected', () => {
@@ -297,7 +313,7 @@
         });
       } catch (err) {
         st.connected = false;
-        st.statusText = 'Non connecté';
+        st.statusText = err.message === 'Appareil non compatible' ? 'Non compatible' : 'Non connecté';
         renderUI();
       }
     }
@@ -429,71 +445,42 @@
       }
     };
 
-    // Logique de la modale 3 pages
-    // Logique de la modale 3 pages (avec mémorisation au clic sur "Compris")
-    const MODAL_KEY = 'zf319_modal_seen_v1';
-    const modalPages = [
-      {
-        title: 'Reconnexion après actualisation',
-        text: 'Pour des raisons de sécurité imposées par les navigateurs web, la connexion Bluetooth est coupée à chaque rechargement de la page. Il faut donc cliquer sur « Connecter » pour resélectionner vos panneaux LED à chaque actualisation.'
-      },
-      {
-        title: 'Fonctionnement des animations',
-        text: 'Les animations (Arc-en-ciel, Respiration, Gyrophare) sont calculées en direct par cette page. Votre téléphone doit donc rester à proximité et connecté en Bluetooth aux panneaux LED pour que l’animation continue de tourner.'
-      },
-      {
-        title: 'À propos & Licence',
-        text: 'Je m’appelle Alex et je mets ce site web gratuitement à disposition pour aider les utilisateurs dont l’application officielle a fermé. Ce projet est libre d’utilisation personnelle, mais il est strictement interdit de se l’approprier ou de le revendre.'
-      }
-    ];
-
-    let currentModalPage = 0;
-    const modalEl = document.getElementById('infoModal');
-
-    function updateModal() {
-      const page = modalPages[currentModalPage];
-      document.getElementById('modalStep').textContent = `Information ${currentModalPage + 1} / ${modalPages.length}`;
-      document.getElementById('modalTitle').textContent = page.title;
-      document.getElementById('modalBody').textContent = page.text;
-
-      [0, 1, 2].forEach(i => {
-        document.getElementById(`dot${i}`).classList.toggle('active', i === currentModalPage);
-      });
-
-      document.getElementById('modalPrev').style.display = currentModalPage > 0 ? 'inline-block' : 'none';
-      document.getElementById('modalNext').textContent = currentModalPage === modalPages.length - 1 ? 'Compris' : 'Suivant';
-    }
-
-    document.getElementById('modalNext').onclick = () => {
-      if (currentModalPage < modalPages.length - 1) {
-        currentModalPage++;
-        updateModal();
-      } else {
-        localStorage.setItem(MODAL_KEY, '1');
-        modalEl.classList.add('hidden');
-      }
-    };
-
-    document.getElementById('modalPrev').onclick = () => {
-      if (currentModalPage > 0) {
-        currentModalPage--;
-        updateModal();
-      }
-    };
-
-    document.getElementById('btnHelp').onclick = () => {
-      currentModalPage = 0;
-      updateModal();
-      modalEl.classList.remove('hidden');
-    };
-
-    // Initialisation : masque la modale si déjà validée
-    if (localStorage.getItem(MODAL_KEY) === '1') {
-      modalEl.classList.add('hidden');
-    } else {
-      updateModal();
-    }
-    renderUI();
+    const MODAL_KEY = 'zf319_modal_seen_v2';
+        const modalPages = [
+          {
+            title: 'Identifier votre panneau LED',
+            text: 'Lors de la connexion Bluetooth, votre navigateur affichera tous les appareils à proximité. Le nom de votre projecteur ZOESURE ressemble généralement à : « ZF319-4B56 », « ZF-XXXX » ou « ZT-XXXX ».'
+          },
+          {
+            title: 'Reconnexion après actualisation',
+            text: 'Pour des raisons de sécurité imposées par les navigateurs web, la connexion Bluetooth est coupée à chaque rechargement de la page. Il faut donc cliquer sur « Connecter » pour resélectionner vos panneaux LED à chaque actualisation.'
+          },
+          {
+            title: 'Fonctionnement des animations',
+            text: 'Les animations (Arc-en-ciel, Respiration, Gyrophare) sont calculées en direct par cette page. Votre téléphone doit donc rester à proximité et connecté en Bluetooth aux panneaux LED pour que l’animation continue de tourner.'
+          },
+          {
+            title: 'À propos & Licence',
+            text: 'Je m’appelle Alex et je mets ce site web gratuitement à disposition pour aider les utilisateurs dont l’application officielle a fermé. Ce projet est libre d’utilisation personnelle, mais il est strictement interdit de se l’approprier ou de le revendre.'
+          }
+        ];
+    
+        let currentModalPage = 0;
+        const modalEl = document.getElementById('infoModal');
+    
+        function updateModal() {
+          const page = modalPages[currentModalPage];
+          document.getElementById('modalStep').textContent = `Information ${currentModalPage + 1} / ${modalPages.length}`;
+          document.getElementById('modalTitle').textContent = page.title;
+          document.getElementById('modalBody').textContent = page.text;
+    
+          modalPages.forEach((_, i) => {
+            document.getElementById(`dot${i}`).classList.toggle('active', i === currentModalPage);
+          });
+    
+          document.getElementById('modalPrev').style.display = currentModalPage > 0 ? 'inline-block' : 'none';
+          document.getElementById('modalNext').textContent = currentModalPage === modalPages.length - 1 ? 'Compris' : 'Suivant';
+        }
   </script>
 </body>
 </html>
